@@ -1,0 +1,39 @@
+name: Pruebas
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Recorrido de la matriz
+        run: make matriz
+
+      - name: Las dos sumas son correctas y el orden importa
+        run: |
+          esperado=$((2048 * 2048))
+          filas=$(awk '/^filas/    {print $2}' matriz.txt)
+          columnas=$(awk '/^columnas/ {print $2}' matriz.txt)
+          suma_f=$(awk '/^filas/    {print $5}' matriz.txt)
+          suma_c=$(awk '/^columnas/ {print $5}' matriz.txt)
+          echo "filas: ${filas} ms, columnas: ${columnas} ms"
+          test "$suma_f" = "$esperado" || { echo "la suma por filas dio $suma_f y debía dar $esperado"; exit 1; }
+          test "$suma_c" = "$esperado" || { echo "la suma por columnas dio $suma_c y debía dar $esperado"; exit 1; }
+          test "$columnas" -ge "$filas" || { echo "el recorrido por columnas salió más rápido que por filas: revise el orden de los ciclos"; exit 1; }
+
+      - name: False sharing
+        run: make falso
+
+      - name: Las dos versiones cuentan lo mismo
+        run: |
+          esperado=$((4 * 50000000))
+          suma_p=$(awk '/^pegados/   {print $5}' falso.txt)
+          suma_s=$(awk '/^separados/ {print $5}' falso.txt)
+          echo "pegados: $(awk '/^pegados/ {print $2}' falso.txt) ms, separados: $(awk '/^separados/ {print $2}' falso.txt) ms"
+          test "$suma_p" = "$esperado" || { echo "la versión con contadores pegados dio $suma_p y debía dar $esperado"; exit 1; }
+          test "$suma_s" = "$esperado" || { echo "la versión con contadores separados dio $suma_s y debía dar $esperado"; exit 1; }
