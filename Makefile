@@ -11,7 +11,17 @@ falso:
 	./falso | tee falso.txt
 	rm -f falso
 
-todo: matriz falso
+paso:
+	$(CXX) $(FLAGS) -o paso paso.cpp
+	./paso | tee paso.txt
+	rm -f paso
+
+amdahl:
+	$(CXX) $(FLAGS) -pthread -o amdahl amdahl.cpp
+	./amdahl | tee amdahl.txt
+	rm -f amdahl
+
+todo: matriz falso paso amdahl
 
 limpiar:
-	rm -f matriz falso matriz.txt falso.txt
+	rm -f matriz falso paso amdahl matriz.txt falso.txt paso.txt amdahl.txt

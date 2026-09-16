@@ -37,3 +37,43 @@ jobs:
           echo "pegados: $(awk '/^pegados/ {print $2}' falso.txt) ms, separados: $(awk '/^separados/ {print $2}' falso.txt) ms"
           test "$suma_p" = "$esperado" || { echo "la versión con contadores pegados dio $suma_p y debía dar $esperado"; exit 1; }
           test "$suma_s" = "$esperado" || { echo "la versión con contadores separados dio $suma_s y debía dar $esperado"; exit 1; }
+
+      - name: El experimento del paso
+        run: make paso
+
+      - name: Cada paso toca las posiciones que le tocan
+        run: |
+          awk '
+            $1 ~ /^[0-9]+$/ {
+              n = 33554432
+              if ($2 != n / $1) { printf "paso %s: se tocaron %s posiciones y debian ser %d\n", $1, $2, n / $1; mal = 1 }
+              if ($NF != n + 2 * $2) { printf "paso %s: la suma dio %s y debia dar %d\n", $1, $NF, n + 2 * $2; mal = 1 }
+              filas++
+            }
+            END { if (filas < 11) { print "faltan filas en paso.txt: se esperaban 11 y hay " filas; exit 1 }
+                  if (mal) exit 1 }
+          ' paso.txt
+          echo "Las once filas tocan las posiciones correctas."
+
+      - name: Speedup y ley de Amdahl
+        run: make amdahl
+
+      - name: La suma coincide y la parte paralela se acelera
+        run: |
+          awk '
+            {
+              for (i = 1; i <= NF; i++) { if ($i == "paralelo") par[$2] = $(i + 1); if ($i == "suma") suma = $(i + 1) }
+              if (suma != 4999872888854) { printf "con %s hilos la suma dio %s y debia dar 4999872888854\n", $2, suma; mal = 1 }
+            }
+            END {
+              if (!(4 in par)) { print "faltan filas en amdahl.txt"; exit 1 }
+              if (mal) exit 1
+              printf "parte paralela: %s ms con 1 hilo, %s ms con 4\n", par[1], par[4]
+              if (par[4] + 0 > 0.5 * par[1]) { print "con cuatro hilos la parte paralela no bajo ni a la mitad: revise el reparto"; exit 1 }
+            }
+          ' amdahl.txt
+
+      - name: Las respuestas están escritas
+        run: |
+          palabras=$(wc -w < RESPUESTAS.md)
+          test "$palabras" -ge 220 || { echo "RESPUESTAS.md tiene $palabras palabras: falta la tabla o las explicaciones"; exit 1; }

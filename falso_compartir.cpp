@@ -17,6 +17,11 @@ const int LINEA = 64;  // bytes de una línea de caché
 
 // TODO: cada hilo suma VUELTAS veces sobre contadores[id], que están
 // contiguos en memoria.
+//
+// Con -O2 el compilador guarda el contador en un registro y escribe una sola
+// vez al final, y entonces las dos versiones tardan lo mismo. Para que cada
+// vuelta vaya a memoria, incrementar a través de un puntero volatile:
+//   volatile long *c = &contadores[id];  *c = *c + 1;
 void pegados(vector<long> &contadores) {
 }
 

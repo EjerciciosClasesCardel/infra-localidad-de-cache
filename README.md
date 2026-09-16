@@ -4,9 +4,17 @@ Infraestructuras Paralelas y Distribuidas
 Escuela de Ingeniería de Sistemas y Computación, Universidad del Valle
 Carlos Andrés Delgado Saavedra
 
-Dos programas que hacen exactamente la misma cuenta de dos maneras distintas.
-En los dos casos el resultado es idéntico y el tiempo no, y la explicación está
-en cómo viajan los datos entre la memoria y la caché.
+Cuatro programas cortos. En los dos primeros la misma cuenta se hace de dos
+maneras, el resultado es idéntico y el tiempo no, y la explicación está en
+cómo viajan los datos entre la memoria y la caché. El tercero mide cuánto
+cuesta traer una línea, y el cuarto pone números a la ley de Amdahl.
+
+| Parte | Archivo | Qué se mide |
+|---|---|---|
+| 1 | `matriz.cpp` | El orden del recorrido |
+| 2 | `falso_compartir.cpp` | Dos hilos sobre la misma línea |
+| 3 | `paso.cpp` | El costo de una línea, aislado |
+| 4 | `amdahl.cpp` | Speedup, eficiencia y el techo de la parte secuencial |
 
 ## Parte 1: recorrer una matriz
 
@@ -42,11 +50,58 @@ Ninguna de las dos versiones necesita cerrojos: cada hilo escribe en su propia
 posición. La diferencia de tiempo no viene de la corrección sino del protocolo
 de coherencia entre núcleos.
 
+Si las dos versiones tardan 0 ms, el compilador guardó el contador en un
+registro y escribió una sola vez al final: aplicó por su cuenta la corrección.
+Incrementar a través de un puntero `volatile long *` obliga a ir a memoria en
+cada vuelta, y ahí la diferencia aparece.
+
+## Parte 3: el paso
+
+`paso.cpp` recorre un arreglo de 128 MiB multiplicando por 3 una de cada
+`paso` posiciones, con el paso en 1, 2, 4, ... 1024. Al duplicar el paso se
+hace la mitad de las operaciones. Hay que completar `recorrer`, que hace ese
+recorrido y devuelve cuántas posiciones tocó.
+
+```bash
+make paso
+```
+
+La tabla trae, para cada paso, las operaciones, el tiempo y el tiempo por
+operación. La suma de la última columna comprueba que se tocaron las
+posiciones correctas: con `N` unos y `k` operaciones tiene que dar `N + 2k`.
+
+Un `int` ocupa 4 bytes y una línea 64, así que hasta el paso 16 cada
+duplicación sigue trayendo las mismas líneas. La pregunta va en
+`RESPUESTAS.md`: dónde empieza el tiempo a caer al ritmo de las operaciones
+y por qué justo ahí.
+
+## Parte 4: speedup, eficiencia y la ley de Amdahl
+
+`amdahl.cpp` tiene dos partes. `generar` produce diez millones de valores en
+una cadena donde cada uno sale del anterior, y por eso no se puede repartir.
+`procesar` trabaja cada valor por separado y sí se reparte. Hay que completar
+`trozo`, lo que hace cada hilo sobre su tramo, y `en_paralelo`, que parte el
+arreglo en `k` trozos, lanza los hilos, los une y suma los parciales.
+
+```bash
+make amdahl
+```
+
+El programa mide las dos partes con 1, 2, 4 y 8 hilos e imprime los tiempos.
+Lo demás se calcula a mano en `RESPUESTAS.md`: el speedup `T(1) / T(k)`, la
+eficiencia `S(k) / k`, la fracción paralelizable `p` a partir de los tiempos
+con un hilo, y el speedup que predice Amdahl para cada `k` con esa `p`. La
+tabla medida y la predicha se separan en algún punto, y la explicación de ese
+punto es la parte que importa.
+
 ## Qué revisa el flujo de Actions
 
-Que las cuatro sumas den el valor correcto y que el recorrido por columnas no
-salga más rápido que el de filas. Los tiempos quedan impresos en el registro de
-la ejecución.
+Que las cuatro sumas de las partes 1 y 2 den el valor correcto y que el
+recorrido por columnas no salga más rápido que el de filas. Que cada paso de
+la parte 3 toque las posiciones que le tocan. Que la suma de la parte 4 sea la
+misma con cualquier número de hilos y que con cuatro la parte paralela baje al
+menos a la mitad. Y que `RESPUESTAS.md` tenga la tabla y las explicaciones.
+Los tiempos quedan impresos en el registro de la ejecución.
 
 ## Lo que hay que poder explicar
 
@@ -55,3 +110,8 @@ caché en la explicación. Cuánto costó tener los contadores pegados, y por qu
 separarlos arregla algo que no era un error de programación. Si en su máquina
 la diferencia es menor que en el servidor, vale la pena mirar el tamaño de la
 caché de su procesador.
+
+En qué paso la tabla de la parte 3 cambia de régimen y qué tiene que ver con
+los 64 bytes de la línea. Y con qué `p` salió su programa, hasta dónde puede
+llegar el speedup con esa `p` por más núcleos que tenga, y por qué la
+medición con ocho hilos queda por debajo de lo que predice la fórmula.
