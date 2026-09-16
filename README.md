@@ -6,6 +6,10 @@ Carlos Andrés Delgado Saavedra
 
 [![Pruebas](../../actions/workflows/pruebas.yml/badge.svg)](../../actions/workflows/pruebas.yml)
 
+Lo que cada parte necesita de las bibliotecas y herramientas está en
+[DOCUMENTACION.md](DOCUMENTACION.md), con ejemplos que corren y los enlaces
+a la documentación oficial.
+
 Cuatro programas cortos. En los dos primeros la misma cuenta se hace de dos
 maneras, el resultado es idéntico y el tiempo no, y la explicación está en
 cómo viajan los datos entre la memoria y la caché. El tercero mide cuánto
