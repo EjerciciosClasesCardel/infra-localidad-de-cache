@@ -5,44 +5,103 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Un push nuevo cancela el run anterior de la misma rama.
+concurrency:
+  group: pruebas-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  medir:
+  parte-1:
+    name: "Parte 1: recorrer la matriz"
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
-      - name: Recorrido de la matriz
-        run: make matriz
-
-      - name: Las dos sumas son correctas y el orden importa
+      - name: Compilar, ejecutar y verificar
         run: |
+          correr() {
+            make matriz
+          }
+          verificar() {
+            nucleos="$nucleos" bash -eo pipefail <<'VERIFICAR'
           esperado=$((2048 * 2048))
           filas=$(awk '/^filas/    {print $2}' matriz.txt)
           columnas=$(awk '/^columnas/ {print $2}' matriz.txt)
           suma_f=$(awk '/^filas/    {print $5}' matriz.txt)
           suma_c=$(awk '/^columnas/ {print $5}' matriz.txt)
           echo "filas: ${filas} ms, columnas: ${columnas} ms"
-          test "$suma_f" = "$esperado" || { echo "la suma por filas dio $suma_f y debía dar $esperado"; exit 1; }
-          test "$suma_c" = "$esperado" || { echo "la suma por columnas dio $suma_c y debía dar $esperado"; exit 1; }
-          test "$columnas" -ge "$filas" || { echo "el recorrido por columnas salió más rápido que por filas: revise el orden de los ciclos"; exit 1; }
+          test "$suma_f" = "$esperado" || { echo "la suma por filas dio $suma_f y debia dar $esperado"; exit 1; }
+          test "$suma_c" = "$esperado" || { echo "la suma por columnas dio $suma_c y debia dar $esperado"; exit 1; }
+          test "$columnas" -ge "$filas" || { echo "el recorrido por columnas salio mas rapido que por filas: revise el orden de los ciclos"; exit 1; }
+          VERIFICAR
+          }
+          correr
+          if ! salida=$(verificar 2>&1); then
+            echo "$salida"; echo "::notice title=Parte 1::segunda corrida antes de marcar rojo"
+            correr
+            salida=$(verificar 2>&1) || { echo "$salida"; echo "::error file=matriz.cpp,title=Parte 1::$(echo "$salida" | tail -1)"; exit 1; }
+          fi
+          echo "$salida"
 
-      - name: False sharing
-        run: make falso
-
-      - name: Las dos versiones cuentan lo mismo
+      - name: Resumen
+        if: always()
         run: |
+          { echo "### Parte 1: recorrer la matriz"; echo '```'; cat matriz.txt 2>/dev/null || echo "sin salida de matriz.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+  parte-2:
+    name: "Parte 2: false sharing"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compilar, ejecutar y verificar
+        run: |
+          correr() {
+            make falso
+          }
+          verificar() {
+            nucleos="$nucleos" bash -eo pipefail <<'VERIFICAR'
           esperado=$((4 * 50000000))
           suma_p=$(awk '/^pegados/   {print $5}' falso.txt)
           suma_s=$(awk '/^separados/ {print $5}' falso.txt)
-          echo "pegados: $(awk '/^pegados/ {print $2}' falso.txt) ms, separados: $(awk '/^separados/ {print $2}' falso.txt) ms"
-          test "$suma_p" = "$esperado" || { echo "la versión con contadores pegados dio $suma_p y debía dar $esperado"; exit 1; }
-          test "$suma_s" = "$esperado" || { echo "la versión con contadores separados dio $suma_s y debía dar $esperado"; exit 1; }
+          t_p=$(awk '/^pegados/ {print $2}' falso.txt)
+          t_s=$(awk '/^separados/ {print $2}' falso.txt)
+          echo "pegados: ${t_p} ms, separados: ${t_s} ms"
+          test "$suma_p" = "$esperado" || { echo "la version con contadores pegados dio $suma_p y debia dar $esperado"; exit 1; }
+          test "$suma_s" = "$esperado" || { echo "la version con contadores separados dio $suma_s y debia dar $esperado"; exit 1; }
+          test "$t_p" -gt 0 || { echo "la version con contadores pegados tardo 0 ms: el compilador dejo el contador en un registro; incremente a traves de un puntero volatile"; exit 1; }
+          test "$t_s" -lt "$t_p" || { echo "separar los contadores no bajo el tiempo: revise que cada contador quede en su propia linea"; exit 1; }
+          VERIFICAR
+          }
+          correr
+          if ! salida=$(verificar 2>&1); then
+            echo "$salida"; echo "::notice title=Parte 2::segunda corrida antes de marcar rojo"
+            correr
+            salida=$(verificar 2>&1) || { echo "$salida"; echo "::error file=falso_compartir.cpp,title=Parte 2::$(echo "$salida" | tail -1)"; exit 1; }
+          fi
+          echo "$salida"
 
-      - name: El experimento del paso
-        run: make paso
-
-      - name: Cada paso toca las posiciones que le tocan
+      - name: Resumen
+        if: always()
         run: |
+          { echo "### Parte 2: false sharing"; echo '```'; cat falso.txt 2>/dev/null || echo "sin salida de falso.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+  parte-3:
+    name: "Parte 3: el experimento del paso"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compilar, ejecutar y verificar
+        run: |
+          correr() {
+            make paso
+          }
+          verificar() {
+            nucleos="$nucleos" bash -eo pipefail <<'VERIFICAR'
           awk '
             $1 ~ /^[0-9]+$/ {
               n = 33554432
@@ -51,15 +110,34 @@ jobs:
               filas++
             }
             END { if (filas < 11) { print "faltan filas en paso.txt: se esperaban 11 y hay " filas; exit 1 }
-                  if (mal) exit 1 }
+                  if (mal) exit 1
+                  print "las once filas tocan las posiciones correctas" }
           ' paso.txt
-          echo "Las once filas tocan las posiciones correctas."
+          VERIFICAR
+          }
+          correr
+          salida=$(verificar 2>&1) || { echo "$salida"; echo "::error file=paso.cpp,title=Parte 3::$(echo "$salida" | tail -1)"; exit 1; }
+          echo "$salida"
 
-      - name: Speedup y ley de Amdahl
-        run: make amdahl
-
-      - name: La suma coincide y la parte paralela se acelera
+      - name: Resumen
+        if: always()
         run: |
+          { echo "### Parte 3: el experimento del paso"; echo '```'; cat paso.txt 2>/dev/null || echo "sin salida de paso.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+  parte-4:
+    name: "Parte 4: speedup y ley de Amdahl"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compilar, ejecutar y verificar
+        run: |
+          correr() {
+            make amdahl
+          }
+          verificar() {
+            nucleos="$nucleos" bash -eo pipefail <<'VERIFICAR'
           awk '
             {
               for (i = 1; i <= NF; i++) { if ($i == "paralelo") par[$2] = $(i + 1); if ($i == "suma") suma = $(i + 1) }
@@ -72,8 +150,70 @@ jobs:
               if (par[4] + 0 > 0.5 * par[1]) { print "con cuatro hilos la parte paralela no bajo ni a la mitad: revise el reparto"; exit 1 }
             }
           ' amdahl.txt
+          VERIFICAR
+          }
+          correr
+          if ! salida=$(verificar 2>&1); then
+            echo "$salida"; echo "::notice title=Parte 4::segunda corrida antes de marcar rojo"
+            correr
+            salida=$(verificar 2>&1) || { echo "$salida"; echo "::error file=amdahl.cpp,title=Parte 4::$(echo "$salida" | tail -1)"; exit 1; }
+          fi
+          echo "$salida"
 
-      - name: Las respuestas están escritas
+      - name: Resumen
+        if: always()
         run: |
+          { echo "### Parte 4: speedup y ley de Amdahl"; echo '```'; cat amdahl.txt 2>/dev/null || echo "sin salida de amdahl.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+  respuestas:
+    name: "Respuestas escritas"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compilar, ejecutar y verificar
+        run: |
+          correr() {
+            wc -w RESPUESTAS.md | tee respuestas.txt
+          }
+          verificar() {
+            nucleos="$nucleos" bash -eo pipefail <<'VERIFICAR'
           palabras=$(wc -w < RESPUESTAS.md)
           test "$palabras" -ge 220 || { echo "RESPUESTAS.md tiene $palabras palabras: falta la tabla o las explicaciones"; exit 1; }
+          VERIFICAR
+          }
+          correr
+          salida=$(verificar 2>&1) || { echo "$salida"; echo "::error file=RESPUESTAS.md,title=Respuestas escritas::$(echo "$salida" | tail -1)"; exit 1; }
+          echo "$salida"
+
+      - name: Resumen
+        if: always()
+        run: |
+          { echo "### Respuestas escritas"; echo '```'; cat respuestas.txt 2>/dev/null || echo "sin salida de respuestas.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+  resumen:
+    name: Resumen
+    needs: [parte-1, parte-2, parte-3, parte-4, respuestas]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Estado de las partes
+        run: |
+          estado() { case "$1" in success) echo "en verde";; failure) echo "en rojo";; *) echo "$1";; esac; }
+          verdes=0
+          for r in "${{ needs.parte-1.result }}" "${{ needs.parte-2.result }}" "${{ needs.parte-3.result }}" "${{ needs.parte-4.result }}" "${{ needs.respuestas.result }}"; do
+            test "$r" = success && verdes=$((verdes + 1))
+          done
+          {
+            echo "## ${verdes} de 5 partes en verde"
+            echo
+            echo "| Parte | Estado |"
+            echo "|---|---|"
+            echo "| Parte 1: recorrer la matriz | $(estado "${{ needs.parte-1.result }}") |"
+            echo "| Parte 2: false sharing | $(estado "${{ needs.parte-2.result }}") |"
+            echo "| Parte 3: el experimento del paso | $(estado "${{ needs.parte-3.result }}") |"
+            echo "| Parte 4: speedup y ley de Amdahl | $(estado "${{ needs.parte-4.result }}") |"
+            echo "| Respuestas escritas | $(estado "${{ needs.respuestas.result }}") |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "${verdes} de 5 partes en verde"

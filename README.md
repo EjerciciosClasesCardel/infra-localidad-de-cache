@@ -4,6 +4,8 @@ Infraestructuras Paralelas y Distribuidas
 Escuela de Ingeniería de Sistemas y Computación, Universidad del Valle
 Carlos Andrés Delgado Saavedra
 
+[![Pruebas](../../actions/workflows/pruebas.yml/badge.svg)](../../actions/workflows/pruebas.yml)
+
 Cuatro programas cortos. En los dos primeros la misma cuenta se hace de dos
 maneras, el resultado es idéntico y el tiempo no, y la explicación está en
 cómo viajan los datos entre la memoria y la caché. El tercero mide cuánto
@@ -96,12 +98,21 @@ punto es la parte que importa.
 
 ## Qué revisa el flujo de Actions
 
-Que las cuatro sumas de las partes 1 y 2 den el valor correcto y que el
-recorrido por columnas no salga más rápido que el de filas. Que cada paso de
-la parte 3 toque las posiciones que le tocan. Que la suma de la parte 4 sea la
-misma con cualquier número de hilos y que con cuatro la parte paralela baje al
-menos a la mitad. Y que `RESPUESTAS.md` tenga la tabla y las explicaciones.
-Los tiempos quedan impresos en el registro de la ejecución.
+- Parte 1: que las dos sumas den el valor correcto y que el recorrido por
+  columnas no salga más rápido que el de filas.
+- Parte 2: que las dos cuentas den el valor correcto, que la versión con los
+  contadores pegados no tarde 0 ms, y que separarlos baje el tiempo.
+- Parte 3: que cada paso toque las posiciones que le tocan.
+- Parte 4: que la suma sea la misma con cualquier número de hilos y que con
+  cuatro la parte paralela baje al menos a la mitad.
+- Que `RESPUESTAS.md` tenga la tabla y las explicaciones.
+
+Cada parte es un job aparte: la lista de verificaciones del commit dice cuál
+quedó en verde y cuál no, y la pestaña del run trae un resumen con la salida
+de cada programa y el conteo de partes en verde. Cuando una verificación de
+tiempos falla, el flujo repite la corrida una vez antes de marcar rojo, y el
+error queda anotado sobre el archivo de esa parte. Un push nuevo cancela el
+run anterior.
 
 ## Lo que hay que poder explicar
 
