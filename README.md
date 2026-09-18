@@ -22,6 +22,22 @@ cuesta traer una línea, y el cuarto pone números a la ley de Amdahl.
 | 3 | `paso.cpp` | El costo de una línea, aislado |
 | 4 | `amdahl.cpp` | Speedup, eficiencia y el techo de la parte secuencial |
 
+## Requisitos
+
+| Qué | Linux (Debian/Ubuntu) | macOS | Windows |
+|---|---|---|---|
+| `g++` con C++17, `make` y `pthread` | `sudo apt install build-essential` | `xcode-select --install` | WSL2 con Ubuntu y el comando de Linux |
+
+En macOS `g++` es Apple clang y compila estos cuatro programas sin cambios.
+En los Mac con Apple Silicon la línea de caché es de 128 bytes y no de 64,
+así que la separación de la parte 2 puede no mostrar la diferencia en el
+portátil; lo que se entrega sigue siendo la versión de 64 bytes, que es la
+que mide el servidor. En Windows, MSYS2 con MinGW-w64 también sirve, pero
+WSL2 evita sorpresas con `make` y con los tiempos.
+
+Cómo dejar cada sistema listo, paso a paso, está en
+[DOCUMENTACION.md](DOCUMENTACION.md), al final.
+
 ## Parte 1: recorrer una matriz
 
 `matriz.cpp` guarda una matriz de 2048 por 2048 en un solo vector, fila tras
